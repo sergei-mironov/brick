@@ -7,3 +7,6 @@
 [submodule "lib/urweb-monad-pack"]
 	path = lib/urweb-monad-pack
 	url = https://github.com/grwlf/urweb-monad-pack
+[submodule "lib/urweb-soup"]
+	path = lib/urweb-soup
+	url = https://github.com/grwlf/urweb-soup
