@@ -37,8 +37,24 @@ fun rect ((x1,y1):point) ((x2,y2):point) : list (list point) =
     |True => (hline (x1,y1) (x2,y1)) :: []
     |False => (hline (x1,y1) (x2,y1)) :: (rect (x1,y1+(abs (y2-y1))) (x2,y2))
 
+  
+fun ifoldl [a:::Type] [s:::Type] (f:int -> s -> a -> s) (fst:int) (lst:int) (s:s) (l:list a) : s =
+  case List.foldlAbort (fn a (i,s) => 
+    if (i < fst) && (fst >= 0) then
+      Some (i+1, s)
+    else
+      (if (lst < 0) || (le i lst) then Some (i+1, f i s a) else None)
+  ) (0,s) l of
+  |Some (i,x) => x
+  |None => s
 
-
+fun ifoldll [a:::Type] [s:::Type] (f: point -> s -> a -> s) (fst:point) (lst:point) (s:s) (ll: list (list a)) : s =
+  ifoldl (fn y s l =>
+    ifoldl (fn x s a =>
+      f (x,y) s a
+    ) fst.1 lst.1 s l
+  ) fst.2 lst.2 s ll
+ 
 
 (*
  ____                _
@@ -101,6 +117,19 @@ fun rectX (p1:point) (p2:point) : transaction (xbody * list (list (source bool))
   end
   
 fun main {} : transaction page =
-  (x,l) <- rectX (1,1) (12,10);
-  return <xml><head/><body>{x}</body></xml>
+  (x,ll) <- rectX (1,1) (12,10);
+  return
+  <xml><head/>
+  <body>
+    {x}
+    <button value="Check" onclick={fn _ => 
+      let
+        val x = ifoldll (fn x l s => s :: l) (2,2) (4,4) [] ll
+      in
+        _ <- List.mapM (fn s => set s False) x;
+        return {}
+      end
+    }/>
+  </body>
+  </xml>
 
