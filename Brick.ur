@@ -37,16 +37,29 @@ fun rect ((x1,y1):point) ((x2,y2):point) : list (list point) =
     |True => (hline (x1,y1) (x2,y1)) :: []
     |False => (hline (x1,y1) (x2,y1)) :: (rect (x1,y1+(abs (y2-y1))) (x2,y2))
 
+fun foldlWhile [a:::Type] [s:::Type] (f:s->a->(bool*s)) (s:s) (l:list a) : s =
+    let
+        fun foldlWhile' acc ls =
+            case ls of
+              | [] => acc
+              | x :: ls =>
+                case f acc x of
+                  | (False,acc') => acc'
+                  | (True,acc') => foldlWhile' acc' ls
+    in
+        foldlWhile' s l
+    end
   
 fun ifoldl [a:::Type] [s:::Type] (f:int -> s -> a -> s) (fst:int) (lst:int) (s:s) (l:list a) : s =
-  case List.foldlAbort (fn a (i,s) => 
-    if (i < fst) && (fst >= 0) then
-      Some (i+1, s)
-    else
-      (if (lst < 0) || (le i lst) then Some (i+1, f i s a) else None)
-  ) (0,s) l of
-  |Some (i,x) => x
-  |None => s
+  (foldlWhile (fn (i,s) a => 
+    if (fst >=0) && (i < fst) then
+      (True, (i+1, s))
+    else (* i >= fst *)
+      (if (lst < 0) || (i <= lst) then
+        (True, (i+1, f i s a))
+       else
+        (False, (i,s)))
+  ) (0,s) l).2
 
 fun ifoldll [a:::Type] [s:::Type] (f: point -> s -> a -> s) (fst:point) (lst:point) (s:s) (ll: list (list a)) : s =
   ifoldl (fn y s l =>
@@ -115,7 +128,7 @@ fun rectX (p1:point) (p2:point) : transaction (xbody * list (list (source bool))
     p <- rectX' p1 p2;
     return (<xml><table>{p.1}</table></xml>, p.2)
   end
-  
+
 fun main {} : transaction page =
   (x,ll) <- rectX (1,1) (12,10);
   return
@@ -126,6 +139,7 @@ fun main {} : transaction page =
       let
         val x = ifoldll (fn x l s => s :: l) (2,2) (4,4) [] ll
       in
+        alert (show (List.length x));
         _ <- List.mapM (fn s => set s False) x;
         return {}
       end
