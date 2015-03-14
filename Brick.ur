@@ -22,28 +22,29 @@ fun foldlWhile [a:::Type] [s:::Type] (f:s->a->(bool*s)) (s:s) (l:list a) : s =
         foldlWhile' s l
     end
   
-fun ifoldl [a:::Type] [s:::Type] (f:int -> s -> a -> s) (fst':int) (lst':int) (s:s) (l:list a) : s =
+fun ifoldl [a:::Type] [s:::Type] (f:int -> s -> a -> s) (fst':int) (lst':int) (s:s) (len:int, l:list a) : s =
   let
     val fst = min fst' lst'
     val lst = max fst' lst'
   in
-    (foldlWhile (fn (i,s) a => 
-      if (fst >=0) && (i < fst) then
-        (True, (i+1, s))
-      else (* i >= fst *)
-        (if (lst < 0) || (i <= lst) then
-          (True, (i+1, f i s a))
-         else
-          (False, (i,s)))
-    ) (0,s) l).2
+    if fst > len-1 || lst < 0 then s else
+      (foldlWhile (fn (i,s) a => 
+        if (i < fst) then
+          (True, (i+1, s))
+        else (* i >= fst *)
+          (if (i <= lst) then
+            (True, (i+1, f i s a))
+           else
+            (False, (i,s)))
+      ) (0,s) l).2
   end
 
-fun ifoldll [a:::Type] [s:::Type] (f: point -> s -> a -> s) (fst:point) (lst:point) (s:s) (ll: list (list a)) : s =
+fun ifoldll [a:::Type] [s:::Type] (f: point -> s -> a -> s) (fst:point) (lst:point) (s:s) ((w,h), ll:list (list a)) : s =
   ifoldl (fn y s l =>
     ifoldl (fn x s a =>
       f (x,y) s a
-    ) fst.1 lst.1 s l
-  ) fst.2 lst.2 s ll
+    ) fst.1 lst.1 s (w,l)
+  ) fst.2 lst.2 s (h,ll)
 
 fun abs (i:int) : int = if i>=0 then 1 else -1
 
@@ -103,7 +104,9 @@ fun intervalsY g =
     val (Game (w,h,ms)) = g
     val mc = contouredY g
   in
-    ((w-1,0) :: (List.mp (fn (x,y) => (w-1,y)) mc)) `zip_reverse` (mc`List.append`((0,h-1)::[]))
+    ((w-1,0) :: (List.mp (fn (x,y) => (w-1,y+1)) mc))
+      `zip_reverse`
+    ((List.mp (fn (x,y) => (x+1,y)) mc) `List.append` ((0,h-1)::[]))
   end
 
 type rect a = list (list a)
@@ -111,9 +114,10 @@ type rect a = list (list a)
 fun movesY [a:::Type] (g:game) (r:rect a) : list a =
   let
     val intrs = intervalsY g
+    val (Game (w,h,ms)) = g
   in
     foldl(fn (p1,p2) s =>
-      ifoldll (fn pt s a => a :: s) p1 p2 s r
+      ifoldll (fn pt s a => a :: s) p1 p2 s ((w,h),r)
       ) [] intrs
   end
 
@@ -188,11 +192,14 @@ fun rectX (p1:point) (p2:point) : transaction (xbody * list (list (source bool))
 (*   end *)
 
 val ms = L.rev ((1,1) :: (2,3) :: (3,3) :: (1,7) :: (8,2) :: [])
-val g = Game (13,11, ms)
+(* val ms = L.rev ((0,0) :: []) *)
+val w = 13
+val h = 11
+val g = Game (w,h, ms)
 
 fun main {} : transaction page =
   (x,ll) <- rectX (0,0) (12,10);
-  (* P.forM_ (movesY g ll) (fn s => set s False); *)
+  P.forM_ (movesY g ll) (fn s => set s False);
   return
   <xml><head/>
   <body>
@@ -202,7 +209,7 @@ fun main {} : transaction page =
 
     {x}
     <button value="Check" onclick={fn _ => 
-      ifoldll (fn _ m s => m ; set s False) (2,2) (4,6) (return {}) ll
+      ifoldll (fn _ m s => m ; set s False) (2,2) (4,6) (return {}) ((w,h),ll)
     }/>
   </body>
   </xml>
