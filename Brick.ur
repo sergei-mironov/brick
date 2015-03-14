@@ -1,10 +1,13 @@
+structure P = Prelude
+structure L = List
+val foldl = @@L.foldl
+val rev = @@L.rev
+val sort = @@L.sort
 
 type point = (int * int)
 
-fun ltx p1 p2 = p1.1 < p2.1
-fun lty p1 p2 = p1.2 < p2.2
-
-val foldl = @@List.foldl
+fun gtx p1 p2 = p1.1 > p2.1
+fun gty p1 p2 = p1.2 > p2.2
 
 fun foldlWhile [a:::Type] [s:::Type] (f:s->a->(bool*s)) (s:s) (l:list a) : s =
     let
@@ -24,15 +27,15 @@ fun ifoldl [a:::Type] [s:::Type] (f:int -> s -> a -> s) (fst':int) (lst':int) (s
     val fst = min fst' lst'
     val lst = max fst' lst'
   in
-  (foldlWhile (fn (i,s) a => 
-    if (fst >=0) && (i < fst) then
-      (True, (i+1, s))
-    else (* i >= fst *)
-      (if (lst < 0) || (i <= lst) then
-        (True, (i+1, f i s a))
-       else
-        (False, (i,s)))
-  ) (0,s) l).2
+    (foldlWhile (fn (i,s) a => 
+      if (fst >=0) && (i < fst) then
+        (True, (i+1, s))
+      else (* i >= fst *)
+        (if (lst < 0) || (i <= lst) then
+          (True, (i+1, f i s a))
+         else
+          (False, (i,s)))
+    ) (0,s) l).2
   end
 
 fun ifoldll [a:::Type] [s:::Type] (f: point -> s -> a -> s) (fst:point) (lst:point) (s:s) (ll: list (list a)) : s =
@@ -43,8 +46,6 @@ fun ifoldll [a:::Type] [s:::Type] (f: point -> s -> a -> s) (fst:point) (lst:poi
   ) fst.2 lst.2 s ll
 
 fun abs (i:int) : int = if i>=0 then 1 else -1
-
-val sort = @@List.sort
 
 (*
  ____        _
@@ -65,10 +66,10 @@ datatype move = Move of (player * point)
 
 
 fun valid ((xp,yp):point) (l:list point) =
-  List.foldl (fn (x,y) v => v && (xp > x || yp > y)) True l
+  L.foldl (fn (x,y) v => v && (xp > x || yp > y)) True l
   
-fun compress (l:list point) : list point =
-  List.foldl (fn (x,y) res =>
+fun contour (l:list point) : list point =
+  L.foldl (fn (x,y) res =>
     case valid (x,y) res of
       |True => (x,y)::res
       |False => res) [] l
@@ -95,16 +96,21 @@ type height = int
 
 datatype game = Game of (width*height*list point)
 
-fun compressedX (Game (_,_,ms)) = sort ltx (compress ms)
-fun compressedY (Game (_,_,ms)) = sort lty (compress ms)
+fun contouredX (Game (_,_,ms)) = sort gtx (contour ms)
+fun contouredY (Game (_,_,ms)) = sort gty (contour ms)
+fun intervalsY g =
+  let
+    val (Game (w,h,ms)) = g
+    val mc = contouredY g
+  in
+    ((w-1,0) :: (List.mp (fn (x,y) => (w-1,y)) mc)) `zip_reverse` (mc`List.append`((0,h-1)::[]))
+  end
 
 type rect a = list (list a)
 
 fun movesY [a:::Type] (g:game) (r:rect a) : list a =
   let
-    val Game (w,h,ms) = g
-    val mc = compressedY g
-    val intrs = ((w,1)::mc) `zip_reverse` (mc`List.append`((1,h)::[]))
+    val intrs = intervalsY g
   in
     foldl(fn (p1,p2) s =>
       ifoldll (fn pt s a => a :: s) p1 p2 s r
@@ -171,7 +177,7 @@ fun rectX (p1:point) (p2:point) : transaction (xbody * list (list (source bool))
   end
 
 
-val moves = List.rev ((1,1) :: (3,3) :: (5,8) :: (7,9) :: [])
+(* val moves = List.rev ((1,1) :: (3,3) :: (5,8) :: (7,9) :: []) *)
 
 (* fun choose (m:list point) = *)
 (*   let *)
@@ -181,27 +187,22 @@ val moves = List.rev ((1,1) :: (3,3) :: (5,8) :: (7,9) :: [])
 (*     choose' (0, *)
 (*   end *)
 
-(* val g = Game (10,12,[]) *)
+val ms = L.rev ((1,1) :: (2,3) :: (3,3) :: (1,7) :: (8,2) :: [])
+val g = Game (13,11, ms)
 
 fun main {} : transaction page =
-  (x,ll) <- rectX (1,1) (12,10);
+  (x,ll) <- rectX (0,0) (12,10);
+  (* P.forM_ (movesY g ll) (fn s => set s False); *)
   return
   <xml><head/>
   <body>
-
-    {[sort ltx (compress moves)]} <br/>
-    {[sort lty (compress moves)]} <br/>
-
+    {[contour ms]} <br/>
+    {[contouredY g]} <br/>
+    {[intervalsY g]} <br/>
 
     {x}
     <button value="Check" onclick={fn _ => 
-      let
-        val x = ifoldll (fn x l s => s :: l) (2,4) (4,2) [] ll
-      in
-        alert (show (List.length x));
-        _ <- List.mapM (fn s => set s False) x;
-        return {}
-      end
+      ifoldll (fn _ m s => m ; set s False) (2,2) (4,6) (return {}) ll
     }/>
   </body>
   </xml>
