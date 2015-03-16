@@ -67,13 +67,10 @@ datatype move = Move of (player * point)
 
 
 fun valid ((xp,yp):point) (l:list point) =
-  L.foldl (fn (x,y) v => v && (xp > x || yp > y)) True l
+  L.foldl (fn (x,y) v => v && (xp < x || yp < y)) True l
   
 fun contour (l:list point) : list point =
-  L.foldl (fn (x,y) res =>
-    case valid (x,y) res of
-      |True => (x,y)::res
-      |False => res) [] l
+  L.foldl (fn (x,y) res => (x,y) :: L.filter (fn (x2,y2) => x2 < x || y2 < y) res) [] l
 
 fun zip_reverse [a:::Type] [b:::Type] (la:list a) (lb:list b) : list (a*b) =
   (List.foldl (fn a (lb, res) => case lb of
@@ -99,26 +96,24 @@ datatype game = Game of (width*height*list point)
 
 fun contouredX (Game (_,_,ms)) = sort gtx (contour ms)
 fun contouredY (Game (_,_,ms)) = sort gty (contour ms)
-fun intervalsY g =
-  let
-    val (Game (w,h,ms)) = g
-    val mc = contouredY g
-  in
-    ((w-1,0) :: (List.mp (fn (x,y) => (w-1,y+1)) mc))
-      `zip_reverse`
-    ((List.mp (fn (x,y) => (x+1,y)) mc) `List.append` ((0,h-1)::[]))
-  end
 
 type rect a = list (list a)
 
-fun movesY [a:::Type] (g:game) (r:rect a) : list a =
+fun gfoldl [a:::Type] [s:::Type] (f: point -> s -> a -> s) (g:game) (s:s) (r:rect a) : s =
   let
-    val intrs = intervalsY g
     val (Game (w,h,ms)) = g
+    val mc = sort gty (contour ms)
   in
-    foldl(fn (p1,p2) s =>
-      ifoldll (fn pt s a => a :: s) p1 p2 s ((w,h),r)
-      ) [] intrs
+     (foldlWhile (fn (y,s,mc,w') l =>
+      case mc of
+        | [] => (True, (y+1,ifoldl (fn x s a => f (x,y) s a) 0 w' s (w,l),[],w'))
+        | p :: mc' =>
+          let
+            val (w'',mc'') = (if y = p.2 then (p.1-1,mc') else (w',mc))
+          in
+            (True, (y+1,ifoldl (fn x s a => f (x,y) s a) 0 w'' s (w,l),mc'',w''))
+          end
+     ) (0,s,mc,w-1) r).2
   end
 
 (*
@@ -153,7 +148,7 @@ fun hlineX (p1:point) (p2:point) : transaction (xtable * list (source bool)) =
         |False =>
           (x,s) <- cell (x1,y);
           (xx,l) <- hlineX' (x1 + (abs (x2-x1)), y) (x2,y);
-          return (<xml>{xx}{x}</xml>, s :: l)
+          return (<xml>{x}{xx}</xml>, s :: l)
   in
     p <- hlineX' p1 p2;
     return (<xml><tr>{p.1}</tr></xml>, p.2)
@@ -173,43 +168,29 @@ fun rectX (p1:point) (p2:point) : transaction (xbody * list (list (source bool))
         |False =>
           p <- hlineX (x1,y1) (x2,y1);
           pp <- rectX' (x1,y1+(abs (y2-y1))) (x2,y2);
-          return (<xml>{p.1}{pp.1}</xml>, p.2 :: pp.2)
+          return (<xml>{pp.1}{p.1}</xml>, p.2 :: pp.2)
       end
   in
     p <- rectX' p1 p2;
     return (<xml><table>{p.1}</table></xml>, p.2)
   end
 
-
-(* val moves = List.rev ((1,1) :: (3,3) :: (5,8) :: (7,9) :: []) *)
-
-(* fun choose (m:list point) = *)
-(*   let *)
-(*     fun choose' m = *)
-(*       ... *)
-(*   in *)
-(*     choose' (0, *)
-(*   end *)
-
-val ms = L.rev ((1,1) :: (2,3) :: (3,3) :: (1,7) :: (8,2) :: [])
-(* val ms = L.rev ((0,0) :: []) *)
+val ms = ((11,2) :: (3,10) :: (9,5) :: (8,6) :: [])
 val w = 13
 val h = 11
 val g = Game (w,h, ms)
 
 fun main {} : transaction page =
   (x,ll) <- rectX (0,0) (12,10);
-  P.forM_ (movesY g ll) (fn s => set s False);
   return
   <xml><head/>
   <body>
+    {[ms]} <br/>
     {[contour ms]} <br/>
-    {[contouredY g]} <br/>
-    {[intervalsY g]} <br/>
-
+    {[sort gty (contour ms)]} <br/>
     {x}
     <button value="Check" onclick={fn _ => 
-      ifoldll (fn _ m s => m ; set s False) (2,2) (4,6) (return {}) ((w,h),ll)
+      gfoldl (fn _ m a => m ; set a False) g (return {}) ll
     }/>
   </body>
   </xml>
