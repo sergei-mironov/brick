@@ -39,7 +39,7 @@ fun ifoldl [a:::Type] [s:::Type] (f:int -> s -> a -> s) (fst':int) (lst':int) (s
       ) (0,s) l).2
   end
 
-fun ifoldll [a:::Type] [s:::Type] (f: point -> s -> a -> s) (fst:point) (lst:point) (s:s) ((w,h), ll:list (list a)) : s =
+fun ifoldl2 [a:::Type] [s:::Type] (f: point -> s -> a -> s) (fst:point) (lst:point) (s:s) ((w,h), ll:list (list a)) : s =
   ifoldl (fn y s l =>
     ifoldl (fn x s a =>
       f (x,y) s a
@@ -47,6 +47,20 @@ fun ifoldll [a:::Type] [s:::Type] (f: point -> s -> a -> s) (fst:point) (lst:poi
   ) fst.2 lst.2 s (h,ll)
 
 fun abs (i:int) : int = if i>=0 then 1 else -1
+
+fun ifor [s:::Type] (f: int -> s -> s) (fst':int) (lst':int) (s:s) : s =
+  let
+    val fst = min fst' lst'
+    val lst = max fst' lst'
+
+    fun ifor' s fst =
+        if (lst > fst) then
+          ifor' (f fst s) (fst+1)
+        else
+          s
+  in
+    ifor' s fst
+  end
 
 (*
  ____        _
@@ -115,6 +129,25 @@ fun gfoldl [a:::Type] [s:::Type] (f: point -> s -> a -> s) (g:game) (s:s) (r:rec
           end
      ) (0,s,mc,w-1) r).2
   end
+
+datatype result = Win | Loose
+
+
+(* fun calc (g:game) : option result = *)
+(*   let *)
+(*     val (Game (w,h,ms) = g *)
+(*   in *)
+(*     if w = 0 && h = 0 then *)
+(*       Some Win *)
+(*     else *)
+(*       let *)
+(*         val ms' = gfoldl () g [] *)
+(*       in *)
+(*       end *)
+(*   end *)
+  
+
+
 
 (*
  ____                _
