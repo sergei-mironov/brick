@@ -132,6 +132,23 @@ fun gfoldl [a:::Type] [s:::Type] (f: point -> s -> a -> s) (g:game) (s:s) (r:rec
 
 datatype result = Win | Loose
 
+fun gfor [s:::Type] (f : point -> s -> s) (g:game) (s:s) : s =
+  let
+    val (Game (w,h,ms)) = g
+    val mc = sort gty (contour ms)
+  in
+     (ifor (fn y (s,mc,w') =>
+      case mc of
+        | [] => (ifor (fn x s => f (x,y) s) 0 w' s, [], w')
+        | p :: mc' =>
+          let
+            val (w'',mc'') = (if y = p.2 then (p.1-1,mc') else (w',mc))
+          in
+            (ifor (fn x s => f (x,y) s) 0 w'' s, mc'',w'')
+          end
+     ) 0 (h-1) (s,mc,w-1)).1
+  end
+  
 
 (* fun calc (g:game) : option result = *)
 (*   let *)
@@ -157,6 +174,8 @@ datatype result = Win | Loose
 |_| \_\___|_| |_|\__,_|\___|_|
 
 *)
+
+(* type cell = (source bool * source string) *)
 
 fun hlineX (p1:point) (p2:point) : transaction (xtable * list (source bool)) = 
   let
