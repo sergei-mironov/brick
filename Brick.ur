@@ -54,7 +54,7 @@ fun ifor [s:::Type] (f: int -> s -> s) (fst':int) (lst':int) (s:s) : s =
     val lst = max fst' lst'
 
     fun ifor' s fst =
-        if (lst > fst) then
+        if (lst >= fst) then
           ifor' (f fst s) (fst+1)
         else
           s
@@ -132,7 +132,7 @@ fun gfoldl [a:::Type] [s:::Type] (f: point -> s -> a -> s) (g:game) (s:s) (r:rec
 
 datatype result = Win | Loose
 
-fun gfor [s:::Type] (f : point -> s -> s) (g:game) (s:s) : s =
+fun gfor [s:::Type] (f : point -> s -> s) (s:s) (g:game) : s =
   let
     val (Game (w,h,ms)) = g
     val mc = sort gty (contour ms)
@@ -175,22 +175,24 @@ fun gfor [s:::Type] (f : point -> s -> s) (g:game) (s:s) : s =
 
 *)
 
-(* type cell = (source bool * source string) *)
+type cell = (source bool * source string)
 
-fun hlineX (p1:point) (p2:point) : transaction (xtable * list (source bool)) = 
+fun hlineX (p1:point) (p2:point) : transaction (xtable * list cell) = 
   let
     fun cell (x,y) =
-      s <- source True;
+      s1 <- source True;
+      s2 <- source "";
       return (
         <xml>
         <td dynStyle={
-          b <- signal s;
+          b <- signal s1;
           return (if b then
             STYLE "width:50px; height:50px; overflow:hidden; display:inline-block; white-space:nowrap; background:blue"
           else
             STYLE "width:50px; height:50px; overflow:hidden; display:inline-block; white-space:nowrap; background:white")}>
-            </td>
-        </xml>, s)
+         <dyn signal={v <-signal s2; return (cdata v)}/>
+         </td>
+        </xml>, (s1,s2))
 
     fun hlineX' ((x1,y):point) ((x2,_):point) =
       case x1 = x2 of
@@ -206,9 +208,11 @@ fun hlineX (p1:point) (p2:point) : transaction (xtable * list (source bool)) =
     return (<xml><tr>{p.1}</tr></xml>, p.2)
   end
 
-fun rectX (p1:point) (p2:point) : transaction (xbody * list (list (source bool))) =
+type grect a = (list (list a))
+
+fun rectX (p1:point) (p2:point) : transaction (xbody * grect cell) =
   let
-    fun rectX' (p1:point) (p2:point) : transaction (xtable * list (list (source bool))) =
+    fun rectX' (p1:point) (p2:point) : transaction (xtable * grect cell) =
       let
         val (x1,y1) = p1
         val (x2,y2) = p2
@@ -227,6 +231,17 @@ fun rectX (p1:point) (p2:point) : transaction (xbody * list (list (source bool))
     return (<xml><table>{p.1}</table></xml>, p.2)
   end
 
+(* too long to implement *)
+(* type gzipper a = (list (list a) * list a * list a * list (list a)) *)
+
+fun gnav [a:::Type] (p:point) (g:grect a) : a = 
+  let
+    fromopt (L.nth (fromopt (L.nth g p.2)) p.1)
+  where
+    fun fromopt [a] (o:option a) : a = case o of |None => error <xml>gnav error</xml> |Some x => x
+  end
+
+
 val ms = ((11,2) :: (3,10) :: (9,5) :: (8,6) :: [])
 val w = 13
 val h = 11
@@ -242,8 +257,13 @@ fun main {} : transaction page =
     {[sort gty (contour ms)]} <br/>
     {x}
     <button value="Check" onclick={fn _ => 
-      gfoldl (fn _ m a => m ; set a False) g (return {}) ll
-    }/>
+      gfoldl (fn _ m a => m ; set a.1 False) g (return {}) ll
+    }/><br/>
+    <button value="Check1" onclick={fn _ => 
+      gfor (fn p m =>
+        let val c = gnav p ll in
+        m ; set c.1 False ; set c.2 (show p) end) (return {}) g
+    }/><br/>
   </body>
   </xml>
 
