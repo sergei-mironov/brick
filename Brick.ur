@@ -149,6 +149,8 @@ fun gmap [s:::Type] (f : point -> s -> s) (s:s) (g:game) : s =
   
 datatype result = Win | Loose
 
+val show_result : show result = mkShow (fn r => case r of |Win=>"Win" |Loose =>"Loose")
+
 (*
 fun gwfold [s] (f: point -> result -> s -> s) (s:s) (g:game) : s =
   let
@@ -173,9 +175,9 @@ fun gres (p:point) (g:game) : result =
     val g' = if valid p ms then
                Game (w,h, p::ms)
              else
-               error <xml>Bug: invalid move {[p]}</xml>
+               error <xml>Bug: invalid move {[p]} have moves {[ms]}</xml>
   in
-    if p.1 = 0 && p.2 = 0 then
+    if p.1 > 0 || p.2 > 0 then
       gmap (fn p' st =>
         case gres p' g' of
           |Win => Loose
@@ -277,13 +279,22 @@ fun main {} : transaction page =
     {[contour ms]} <br/>
     {[sort gty (contour ms)]} <br/>
     {x}
-    <button value="Check" onclick={fn _ => 
+    <button value="Check1" onclick={fn _ => 
       gfoldl (fn _ m a => m ; set a.1 False) g (return {}) ll
     }/><br/>
-    <button value="Check1" onclick={fn _ => 
+    <button value="Check2" onclick={fn _ => 
       gmap (fn p m =>
         let val c = gnav p ll in
         m ; set c.1 False ; set c.2 (show p) end) (return {}) g
+    }/><br/>
+    <button value="Check3" onclick={fn _ => 
+      gfoldl (fn p m a =>
+        let
+          val x = gres p g
+        in
+          m ; set a.2 (show x)
+        end
+      ) g (return {}) ll
     }/><br/>
   </body>
   </xml>
