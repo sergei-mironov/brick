@@ -130,9 +130,7 @@ fun gfoldl [a:::Type] [s:::Type] (f: point -> s -> a -> s) (g:game) (s:s) (r:rec
      ) (0,s,mc,w-1) r).2
   end
 
-datatype result = Win | Loose
-
-fun gfor [s:::Type] (f : point -> s -> s) (s:s) (g:game) : s =
+fun gmap [s:::Type] (f : point -> s -> s) (s:s) (g:game) : s =
   let
     val (Game (w,h,ms)) = g
     val mc = sort gty (contour ms)
@@ -149,20 +147,43 @@ fun gfor [s:::Type] (f : point -> s -> s) (s:s) (g:game) : s =
      ) 0 (h-1) (s,mc,w-1)).1
   end
   
+datatype result = Win | Loose
 
-(* fun calc (g:game) : option result = *)
-(*   let *)
-(*     val (Game (w,h,ms) = g *)
-(*   in *)
-(*     if w = 0 && h = 0 then *)
-(*       Some Win *)
-(*     else *)
-(*       let *)
-(*         val ms' = gfoldl () g [] *)
-(*       in *)
-(*       end *)
-(*   end *)
-  
+(*
+fun gwfold [s] (f: point -> result -> s -> s) (s:s) (g:game) : s =
+  let
+    val (Game (w,h,ms)) = g
+  in
+    if w = 0 && h = 0 then
+      (f (-1,-1) Win s)
+    else
+        gmap (fn p s => ... ) s g
+      let
+        val ms' = 
+      in
+        ms'
+      end
+  end
+*)
+
+fun gres (p:point) (g:game) : result =
+  let
+    val (Game (w,h,ms)) = g
+
+    val g' = if valid p ms then
+               Game (w,h, p::ms)
+             else
+               error <xml>Bug: invalid move {[p]}</xml>
+  in
+    if p.1 = 0 && p.2 = 0 then
+      gmap (fn p' st =>
+        case gres p' g' of
+          |Win => Loose
+          |Loose => st
+      ) Win g'
+    else
+      Loose
+  end
 
 
 
@@ -260,7 +281,7 @@ fun main {} : transaction page =
       gfoldl (fn _ m a => m ; set a.1 False) g (return {}) ll
     }/><br/>
     <button value="Check1" onclick={fn _ => 
-      gfor (fn p m =>
+      gmap (fn p m =>
         let val c = gnav p ll in
         m ; set c.1 False ; set c.2 (show p) end) (return {}) g
     }/><br/>
