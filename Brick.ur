@@ -146,6 +146,12 @@ fun gmap [s:::Type] (f : point -> s -> s) (s:s) (g:game) : s =
           end
      ) 0 (h-1) (s,mc,w-1)).1
   end
+
+val tms = (0,1)::(1,0)::[]
+
+val tg = Game (10,10,tms)
+
+val tms2 = gmap (fn p s => p::s) [] tg
   
 datatype result = Win | Loose
 
@@ -275,9 +281,9 @@ fun main {} : transaction page =
   return
   <xml><head/>
   <body>
-    {[ms]} <br/>
-    {[contour ms]} <br/>
-    {[sort gty (contour ms)]} <br/>
+    {[sort gty (contour tms)]} <br/>
+    {[tms2]} <br/>
+    (* {[sort gty (contour ms)]} <br/> *)
     {x}
     <button value="Check1" onclick={fn _ => 
       gfoldl (fn _ m a => m ; set a.1 False) g (return {}) ll
