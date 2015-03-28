@@ -8,6 +8,7 @@ type point = (int * int)
 
 fun gtx p1 p2 = p1.1 > p2.1
 fun gty p1 p2 = p1.2 > p2.2
+(* fun lty p1 p2 = p1.2 < p2.2 *)
 
 fun foldlWhile [a:::Type] [s:::Type] (f:s->a->(bool*s)) (s:s) (l:list a) : s =
     let
@@ -48,18 +49,19 @@ fun ifoldl2 [a:::Type] [s:::Type] (f: point -> s -> a -> s) (fst:point) (lst:poi
 
 fun abs (i:int) : int = if i>=0 then 1 else -1
 
+(* Iterate throw [fst..lst], assume that fst <= lst *)
+fun ifor' [s:::Type] (f: int -> s -> s) (fst:int) (lst:int) (s:s) : s =
+  if (lst >= fst) then
+    ifor' f (fst+1) lst (f fst s)
+  else
+    s
+
 fun ifor [s:::Type] (f: int -> s -> s) (fst':int) (lst':int) (s:s) : s =
   let
     val fst = min fst' lst'
     val lst = max fst' lst'
-
-    fun ifor' s fst =
-        if (lst >= fst) then
-          ifor' (f fst s) (fst+1)
-        else
-          s
   in
-    ifor' s fst
+    ifor' f fst lst s
   end
 
 (*
@@ -83,8 +85,11 @@ datatype move = Move of (player * point)
 fun valid ((xp,yp):point) (l:list point) =
   L.foldl (fn (x,y) v => v && (xp < x || yp < y)) True l
   
+(* fun contour (l:list point) : list point = *)
+(*   L.foldl (fn (x,y) res => (x,y) :: L.filter (fn (x2,y2) => x2 < x || y2 < y) res) [] l *)
+
 fun contour (l:list point) : list point =
-  L.foldl (fn (x,y) res => (x,y) :: L.filter (fn (x2,y2) => x2 < x || y2 < y) res) [] l
+  L.foldl (fn p res => if valid p res then p :: res else res) [] l
 
 fun zip_reverse [a:::Type] [b:::Type] (la:list a) (lb:list b) : list (a*b) =
   (List.foldl (fn a (lb, res) => case lb of
@@ -113,39 +118,38 @@ fun contouredY (Game (_,_,ms)) = sort gty (contour ms)
 
 type rect a = list (list a)
 
-fun gfoldl [a:::Type] [s:::Type] (f: point -> s -> a -> s) (g:game) (s:s) (r:rect a) : s =
+fun gmap' [s:::Type] (fy : int -> s -> s)  (fx : point -> s -> s) (s:s) (g:game) : s =
   let
     val (Game (w,h,ms)) = g
     val mc = sort gty (contour ms)
   in
-     (foldlWhile (fn (y,s,mc,w') l =>
+     (ifor' (fn y (s,mc,w') =>
+      let
+        val s = if y<>0 then fy y s else s
+      in
       case mc of
-        | [] => (True, (y+1,ifoldl (fn x s a => f (x,y) s a) 0 w' s (w,l),[],w'))
+        | [] => (ifor' (fn x s => fx (x,y) s) 0 w' s, [], w')
         | p :: mc' =>
           let
             val (w'',mc'') = (if y = p.2 then (p.1-1,mc') else (w',mc))
           in
-            (True, (y+1,ifoldl (fn x s a => f (x,y) s a) 0 w'' s (w,l),mc'',w''))
+            (ifor' (fn x s => fx (x,y) s) 0 w'' s, mc'',w'')
           end
-     ) (0,s,mc,w-1) r).2
+      end
+     ) 0 (h-1) (s,mc,w-1)).1
   end
 
 fun gmap [s:::Type] (f : point -> s -> s) (s:s) (g:game) : s =
-  let
-    val (Game (w,h,ms)) = g
-    val mc = sort gty (contour ms)
-  in
-     (ifor (fn y (s,mc,w') =>
-      case mc of
-        | [] => (ifor (fn x s => f (x,y) s) 0 w' s, [], w')
-        | p :: mc' =>
-          let
-            val (w'',mc'') = (if y = p.2 then (p.1-1,mc') else (w',mc))
-          in
-            (ifor (fn x s => f (x,y) s) 0 w'' s, mc'',w'')
-          end
-     ) 0 (h-1) (s,mc,w-1)).1
-  end
+  gmap' (fn _ s => s) f s g
+
+fun gfoldl [a:::Type] [s:::Type] (f: point -> s -> a -> s) (g:game) (s:s) (r:rect a) : s =
+  (gmap' (fn y (r,s) => (case r of |[] => [] |(r :: rs) => rs,s)) (fn p (r,s) =>
+    (case r of
+      |[] => (r,s)
+      |l :: ls =>
+        (case l of
+          |[] => (r,s)
+          |a::as => (as :: ls, f p s a)))) (r,s) g).2
 
 val tms = (0,1)::(1,0)::[]
 
@@ -271,18 +275,20 @@ fun gnav [a:::Type] (p:point) (g:grect a) : a =
   end
 
 
-val ms = ((11,2) :: (3,10) :: (9,5) :: (8,6) :: [])
-val w = 13
-val h = 11
+val ms = ((1,2) :: (2,1) :: (3,3) :: [])
+(* val ms = ((0,1) :: (1,0) :: (11,2) ::[]) *)
+val w = 5
+val h = 5
 val g = Game (w,h, ms)
 
 fun main {} : transaction page =
-  (x,ll) <- rectX (0,0) (12,10);
+  (x,ll) <- rectX (0,0) (w-1,h-1);
   return
   <xml><head/>
   <body>
-    {[sort gty (contour tms)]} <br/>
-    {[tms2]} <br/>
+    {[sort gty (contour ms)]} <br/>
+    {[gmap (fn p x => p :: x) [] g]} <br/>
+    (* {[tms2]} <br/> *)
     (* {[sort gty (contour ms)]} <br/> *)
     {x}
     <button value="Check1" onclick={fn _ => 
