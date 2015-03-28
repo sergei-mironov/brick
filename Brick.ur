@@ -222,7 +222,7 @@ fun hlineX (p1:point) (p2:point) : transaction (xtable * list cell) =
           return (if b then
             STYLE "width:50px; height:50px; overflow:hidden; display:inline-block; white-space:nowrap; background:blue"
           else
-            STYLE "width:50px; height:50px; overflow:hidden; display:inline-block; white-space:nowrap; background:white")}>
+            STYLE "width:50px; height:50px; overflow:hidden; display:inline-block; white-space:nowrap; background:#eeeeee")}>
          <dyn signal={v <-signal s2; return (cdata v)}/>
          </td>
         </xml>, (s1,s2))
@@ -285,7 +285,11 @@ fun main {} : transaction page =
   (x,ll) <- rectX (0,0) (w-1,h-1);
   return
   <xml><head/>
-  <body>
+  <body onload={
+      gfoldl (fn p m a =>
+        m ; if valid p ms then set a.1 False else return {}
+      ) g (return {}) ll
+    }>
     {[sort gty (contour ms)]} <br/>
     {[gmap (fn p x => p :: x) [] g]} <br/>
     (* {[tms2]} <br/> *)
