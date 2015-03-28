@@ -201,6 +201,8 @@ fun gres (p:point) (g:game) : result =
       Loose
   end
 
+fun gresM (p:point) (g:game) : transaction result =
+  return (gres p g)
 
 
 (*
@@ -282,8 +284,8 @@ fun gnav [a:::Type] (p:point) (g:grect a) : a =
 (* val ms = ((1,2) :: (2,1) :: (3,3) :: []) *)
 (* val ms = ((0,1) :: (1,0) :: (11,2) ::[]) *)
 val ms = []
-val w = 5
-val h = 4
+val w = 7
+val h = 3
 val g = Game (w,h, ms)
 
 fun main {} : transaction page =
@@ -311,8 +313,9 @@ fun main {} : transaction page =
     <button value="Check3" onclick={fn _ => 
       gfoldl (fn p m a =>
         let
-          val x = gres p g
+          (* val x = gres p g *)
         in
+          x <- rpc (gresM p g);
           m ; set a.2 (show x)
         end
       ) g (return {}) ll
