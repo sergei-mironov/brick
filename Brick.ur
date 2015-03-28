@@ -189,9 +189,13 @@ fun gres (p:point) (g:game) : result =
   in
     if p.1 > 0 || p.2 > 0 then
       gmap (fn p' st =>
-        case gres p' g' of
-          |Win => Loose
-          |Loose => st
+        case st of
+          |Win =>
+            (case gres p' g' of
+              |Win => Loose
+              |Loose => st)
+          |Loose =>
+            st
       ) Win g'
     else
       Loose
@@ -275,10 +279,11 @@ fun gnav [a:::Type] (p:point) (g:grect a) : a =
   end
 
 
-val ms = ((1,2) :: (2,1) :: (3,3) :: [])
+(* val ms = ((1,2) :: (2,1) :: (3,3) :: []) *)
 (* val ms = ((0,1) :: (1,0) :: (11,2) ::[]) *)
+val ms = []
 val w = 5
-val h = 5
+val h = 4
 val g = Game (w,h, ms)
 
 fun main {} : transaction page =
